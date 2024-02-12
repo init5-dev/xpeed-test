@@ -36,6 +36,7 @@
 	let running = false;
 	let waiting = false;
 	let finished = false;
+	let error = false;
 
 	let downloadColor = '';
 	let uploadColor = '';
@@ -94,29 +95,36 @@
 
 	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
-  const calcAvg = () => {
-    console.log(JSON.stringify(data, null, 2));
+	const calcAvg = () => {
+		console.log(JSON.stringify(data, null, 2));
 
-			data.forEach((item) => {
-				if(!isNaN(item.download)) avg.download += Number(item.download);
-				if(!isNaN(item.upload)) avg.upload += Number(item.upload);
-			});
+		data.forEach((item) => {
+			if (!isNaN(item.download)) avg.download += Number(item.download);
+			if (!isNaN(item.upload)) avg.upload += Number(item.upload);
+		});
 
-			avg.download = avg.download / data.length;
-			avg.upload = avg.upload / data.length;
+		avg.download = avg.download / data.length;
+		avg.upload = avg.upload / data.length;
 
-			console.log('AVG:', avg);
-  }
+		console.log('AVG:', avg);
+	};
 
 	const run = async () => {
+		if (iterations < 5 || iterations > 100 || interval < 15 || interval > 60) {
+			error = true;
+			return;
+		} else {
+			error = false;
+		}
+
 		if (i >= iterations) {
-      i = 0
+			i = 0;
 
 			running = false;
 			finished = true;
-      waiting = false
-     
-			calcAvg()
+			waiting = false;
+
+			calcAvg();
 
 			return;
 		}
@@ -188,7 +196,7 @@
 		uploadColor = '';
 		finished = true;
 		waiting = false;
-    calcAvg()
+		calcAvg();
 		console.log('Stopped');
 	};
 
@@ -222,7 +230,7 @@
 			/>
 		</div>
 		<div class="param">
-			<Label for="interval">Interval</Label>
+			<Label for="interval">Pause</Label>
 			<Input disabled={running || waiting} type="number" bind:value={interval} min={15} max={60} />
 		</div>
 		<div class="param">
@@ -238,6 +246,12 @@
 			</Button>
 		</div>
 	</div>
+	{#if error}
+		<Alert color="red" class="flex items-center gap-4">
+			<span>Iterations must be between 5 and 100, and pause between 15 and 60 s.</span>
+		</Alert>
+	{/if}
+
 	{#if running && !waiting}
 		<Alert color="green" class="flex items-center gap-4">
 			<Spinner size={10} />
