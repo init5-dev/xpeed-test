@@ -13,8 +13,9 @@
 		Spinner,
 		Alert
 	} from 'flowbite-svelte';
-	import { PlaySolid, CloseSolid } from 'flowbite-svelte-icons';
+	import { PlaySolid, CloseSolid, DownloadSolid } from 'flowbite-svelte-icons';
 	import SpeedTest from '@cloudflare/speedtest';
+	import FileSaver from 'file-saver';
 
 	const now = () => {
 		return new Date().toLocaleDateString('en-us', {
@@ -30,7 +31,7 @@
 	let showTable = false;
 
 	let iterations = 10;
-	let interval = 30;
+	let interval = 15;
 
 	let running = false;
 	let waiting = false;
@@ -41,15 +42,28 @@
 
 	let i = 0;
 
+	const started = now();
+
 	const data = [];
+
+	const avg = {
+		download: 0,
+		upload: 0
+	};
 
 	const test = new SpeedTest({ autoStart: false });
 
-	const Mbps = (bps) => {
+	const Mbps = (bps, sufix = true) => {
 		if (isNaN(bps)) {
 			return 'N\\A';
 		}
-		return (bps / 1024 / 1024).toFixed(2) + ' Mbps';
+		return (bps / 1024 / 1024).toFixed(2) + (sufix ? ' Mbps' : '');
+	};
+
+	const format = (Mbps) => {
+		if (Mbps === 'N\\A') return Mbps;
+
+		return Mbps + ' Mbps';
 	};
 
 	function getFormattedDateTime(format = 'YYYY-MM-DD HH:mm:ss') {
@@ -82,7 +96,21 @@
 
 	const run = async () => {
 		if (i >= iterations) {
+			running = false;
 			finished = true;
+
+			console.log(JSON.stringify(data, null, 2));
+
+			data.forEach((item) => {
+				if (!isNaN(item.download)) avg.download += item.download;
+				if (!isNaN(item.upload)) avg.upload += item.upload;
+			});
+
+			avg.download = avg.download / data.length;
+			avg.upload = avg.upload / data.length;
+
+			console.log('AVG:', avg);
+
 			return;
 		}
 
@@ -90,6 +118,12 @@
 			waiting = true;
 			await sleep(interval * 1000);
 			waiting = false;
+		} else {
+			while (data.length > 0) data.pop();
+			const avg = {
+				download: 0,
+				upload: 0
+			};
 		}
 
 		showTable = true;
@@ -100,10 +134,6 @@
 		test.restart();
 		running = true;
 
-		while (data.length > 0) data.pop();
-
-		console.log('DATA', JSON.stringify(data));
-
 		data.push({
 			started: now(),
 			download: 'N\\A',
@@ -111,23 +141,32 @@
 		});
 
 		test.onResultsChange = (results) => {
-			data[data.length - 1].download = Mbps(test.results.getDownloadBandwidth());
-			data[data.length - 1].upload = Mbps(test.results.getUploadBandwidth());
+			const downBandwith = test.results.getDownloadBandwidth();
+			const upBandwith = test.results.getUploadBandwidth();
 
-			if (data[data.length - 1].download !== 'N\\A') {
-				downloadColor = downloadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+			if (downBandwith) {
+				data[data.length - 1].download = Mbps(downBandwith, false);
+				if (data[data.length - 1].download !== 'N\\A') {
+					downloadColor = downloadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+				}
 			}
 
-			if (data[data.length - 1].upload !== 'N\\A') {
-				downloadColor = '';
-				uploadColor = uploadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+			if (upBandwith) {
+				data[data.length - 1].upload = Mbps(upBandwith, false);
+
+				if (data[data.length - 1].upload !== 'N\\A') {
+					downloadColor = '';
+					uploadColor = uploadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+				}
 			}
 		};
 
 		test.onFinish = (results) => {
 			const summary = results.getSummary();
-			data[data.length - 1].download = summary.download + ' Mbps';
-			data[data.length - 1].upload = summary.upload + ' Mbps';
+			data[data.length - 1].download = Mbps(summary.download, false);
+			console.log('FINISH DOWNLOAD:', summary.download);
+			data[data.length - 1].upload = Mbps(summary.upload, false);
+			console.log('FINISH DOWNLOAD:', summary.upload);
 			downloadColor = '';
 			uploadColor = '';
 			run();
@@ -140,8 +179,22 @@
 		i = 0;
 		downloadColor = '';
 		uploadColor = '';
-    finished = true;
+		finished = true;
+		waiting = false;
 		console.log('Stopped');
+	};
+
+	const saveFile = async () => {
+		let csvContent = 'Time;Download (Mbps);Upload (Mbps)\n';
+
+		data.forEach((item) => {
+			csvContent += `"${item.started}";${item.download};${item.upload}\n`;
+		});
+
+		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n\n`;
+
+		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
+		FileSaver.saveAs(blob, `xpeedtest-${started}.csv`);
 	};
 </script>
 
@@ -178,23 +231,28 @@
 		</div>
 	</div>
 	{#if running && !waiting}
-		<Alert color="green" class="flex w-full items-center gap-4">
+		<Alert color="green" class="flex items-center gap-4">
 			<Spinner size={10} />
 			<span>Running tests...</span>
 		</Alert>
 	{/if}
 
-	{#if waiting}
-		<Alert color="yellow" class="flex w-full items-center gap-4">
+	{#if running && waiting}
+		<Alert color="yellow" class="flex items-center gap-4">
 			<Spinner size={10} />
 			<span>Waiting {interval} seconds for running iteration {i + 1}...</span>
 		</Alert>
 	{/if}
 
-  {#if finished}
-		<Alert color="green" class="flex w-full items-center gap-4">
-			<span>FINISHED</span>
+	{#if finished}
+		<Alert color="green" class="flex items-center gap-4">
+			<span
+				><strong>AVERAGE: </strong>{format(avg.download.toFixed(2))} | {format(
+					avg.upload.toFixed(2)
+				)}</span
+			>
 		</Alert>
+		<Button on:click={saveFile}><DownloadSolid /></Button>
 	{/if}
 
 	{#if showTable}
@@ -208,10 +266,14 @@
 			<TableBody>
 				{#each data as item, index}
 					<TableBodyRow>
-						<TableBodyCell>{data[data.length - 1].started}</TableBodyCell>
-						<TableBodyCell>{i}</TableBodyCell>
-						<TableBodyCell class={index === i - 1 && downloadColor}>{item.download}</TableBodyCell>
-						<TableBodyCell class={index === i - 1 && uploadColor}>{item.upload}</TableBodyCell>
+						<TableBodyCell>{item.started}</TableBodyCell>
+						<TableBodyCell>{index + 1}</TableBodyCell>
+						<TableBodyCell class={index === i - 1 && downloadColor}
+							>{format(item.download)}</TableBodyCell
+						>
+						<TableBodyCell class={index === i - 1 && uploadColor}
+							>{format(item.upload)}</TableBodyCell
+						>
 					</TableBodyRow>
 				{/each}
 			</TableBody>
