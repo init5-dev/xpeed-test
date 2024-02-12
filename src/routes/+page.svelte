@@ -94,25 +94,29 @@
 
 	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
-	const run = async () => {
-		if (i >= iterations) {
-      i = 0
-      
-			running = false;
-			finished = true;
-      waiting = false
-     
-			console.log(JSON.stringify(data, null, 2));
+  const calcAvg = () => {
+    console.log(JSON.stringify(data, null, 2));
 
 			data.forEach((item) => {
-				if (!isNaN(item.download)) avg.download += item.download;
-				if (!isNaN(item.upload)) avg.upload += item.upload;
+				if(!isNaN(item.download)) avg.download += Number(item.download);
+				if(!isNaN(item.upload)) avg.upload += Number(item.upload);
 			});
 
 			avg.download = avg.download / data.length;
 			avg.upload = avg.upload / data.length;
 
 			console.log('AVG:', avg);
+  }
+
+	const run = async () => {
+		if (i >= iterations) {
+      i = 0
+
+			running = false;
+			finished = true;
+      waiting = false
+     
+			calcAvg()
 
 			return;
 		}
@@ -184,6 +188,7 @@
 		uploadColor = '';
 		finished = true;
 		waiting = false;
+    calcAvg()
 		console.log('Stopped');
 	};
 
@@ -228,7 +233,7 @@
 					<PlaySolid size="sm" />
 				{/if}
 			</Button>
-			<Button on:click={stop}>
+			<Button on:click={stop} disabled={!running}>
 				<CloseSolid size="sm" />
 			</Button>
 		</div>
