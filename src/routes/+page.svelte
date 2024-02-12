@@ -1,0 +1,245 @@
+<script>
+	import {
+		Input,
+		Label,
+		Button,
+		Heading,
+		Table,
+		TableHead,
+		TableHeadCell,
+		TableBody,
+		TableBodyRow,
+		TableBodyCell,
+		Spinner,
+		Alert
+	} from 'flowbite-svelte';
+	import { PlaySolid, CloseSolid } from 'flowbite-svelte-icons';
+	import SpeedTest from '@cloudflare/speedtest';
+
+	const now = () => {
+		return new Date().toLocaleDateString('en-us', {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: 'numeric'
+		});
+	};
+
+	let showTable = false;
+
+	let iterations = 10;
+	let interval = 30;
+
+	let running = false;
+	let waiting = false;
+	let finished = false;
+
+	let downloadColor = '';
+	let uploadColor = '';
+
+	let i = 0;
+
+	const data = [];
+
+	const test = new SpeedTest({ autoStart: false });
+
+	const Mbps = (bps) => {
+		if (isNaN(bps)) {
+			return 'N\\A';
+		}
+		return (bps / 1024 / 1024).toFixed(2) + ' Mbps';
+	};
+
+	function getFormattedDateTime(format = 'YYYY-MM-DD HH:mm:ss') {
+		const now = new Date();
+		const options = {
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: 'numeric',
+			second: 'numeric',
+			hour12: false,
+			timeZone: 'UTC'
+		};
+
+		// Intl.DateTimeFormat can be used for more complex formatting
+		const formattedDateTime = new Intl.DateTimeFormat('en-US', options).format(now);
+
+		// Replace placeholders in the format string
+		return format
+			.replace(/YYYY/g, formattedDateTime.getFullYear())
+			.replace(/MM/g, formattedDateTime.getMonth() + 1)
+			.replace(/DD/g, formattedDateTime.getDate())
+			.replace(/HH/g, formattedDateTime.getHours())
+			.replace(/mm/g, formattedDateTime.getMinutes())
+			.replace(/ss/g, formattedDateTime.getSeconds());
+	}
+
+	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
+
+	const run = async () => {
+		if (i >= iterations) {
+			finished = true;
+			return;
+		}
+
+		if (i > 0) {
+			waiting = true;
+			await sleep(interval * 1000);
+			waiting = false;
+		}
+
+		showTable = true;
+		finished = false;
+		i++;
+
+		console.log('Running test ' + i + '...');
+		test.restart();
+		running = true;
+
+		while (data.length > 0) data.pop();
+
+		console.log('DATA', JSON.stringify(data));
+
+		data.push({
+			started: now(),
+			download: 'N\\A',
+			upload: 'N\\A'
+		});
+
+		test.onResultsChange = (results) => {
+			data[data.length - 1].download = Mbps(test.results.getDownloadBandwidth());
+			data[data.length - 1].upload = Mbps(test.results.getUploadBandwidth());
+
+			if (data[data.length - 1].download !== 'N\\A') {
+				downloadColor = downloadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+			}
+
+			if (data[data.length - 1].upload !== 'N\\A') {
+				downloadColor = '';
+				uploadColor = uploadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
+			}
+		};
+
+		test.onFinish = (results) => {
+			const summary = results.getSummary();
+			data[data.length - 1].download = summary.download + ' Mbps';
+			data[data.length - 1].upload = summary.upload + ' Mbps';
+			downloadColor = '';
+			uploadColor = '';
+			run();
+		};
+	};
+
+	const stop = () => {
+		test.pause();
+		running = false;
+		i = 0;
+		downloadColor = '';
+		uploadColor = '';
+    finished = true;
+		console.log('Stopped');
+	};
+</script>
+
+<div class="main">
+	<Heading tag="h1" align="center">Xpeed Test</Heading>
+	<br />
+	<div class="params-group">
+		<div class="param">
+			<Label for="iterations">Iterations</Label>
+			<Input
+				disabled={running || waiting}
+				class="input"
+				type="number"
+				bind:value={iterations}
+				min={5}
+				max={100}
+			/>
+		</div>
+		<div class="param">
+			<Label for="interval">Interval</Label>
+			<Input disabled={running || waiting} type="number" bind:value={interval} min={15} max={60} />
+		</div>
+		<div class="param">
+			<Button disabled={running || waiting} on:click={run}>
+				{#if running}
+					<Spinner size={4} />
+				{:else}
+					<PlaySolid size="sm" />
+				{/if}
+			</Button>
+			<Button on:click={stop}>
+				<CloseSolid size="sm" />
+			</Button>
+		</div>
+	</div>
+	{#if running && !waiting}
+		<Alert color="green" class="flex w-full items-center gap-4">
+			<Spinner size={10} />
+			<span>Running tests...</span>
+		</Alert>
+	{/if}
+
+	{#if waiting}
+		<Alert color="yellow" class="flex w-full items-center gap-4">
+			<Spinner size={10} />
+			<span>Waiting {interval} seconds for running iteration {i + 1}...</span>
+		</Alert>
+	{/if}
+
+  {#if finished}
+		<Alert color="green" class="flex w-full items-center gap-4">
+			<span>FINISHED</span>
+		</Alert>
+	{/if}
+
+	{#if showTable}
+		<Table class="w-full">
+			<TableHead>
+				<TableHeadCell>Time</TableHeadCell>
+				<TableHeadCell>Test</TableHeadCell>
+				<TableHeadCell>Download</TableHeadCell>
+				<TableHeadCell>Upload</TableHeadCell>
+			</TableHead>
+			<TableBody>
+				{#each data as item, index}
+					<TableBodyRow>
+						<TableBodyCell>{data[data.length - 1].started}</TableBodyCell>
+						<TableBodyCell>{i}</TableBodyCell>
+						<TableBodyCell class={index === i - 1 && downloadColor}>{item.download}</TableBodyCell>
+						<TableBodyCell class={index === i - 1 && uploadColor}>{item.upload}</TableBodyCell>
+					</TableBodyRow>
+				{/each}
+			</TableBody>
+		</Table>
+	{/if}
+</div>
+
+<style>
+	.main {
+		width: 90vw;
+		margin-left: 5vw;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.params-group {
+		display: flex;
+		flex-direction: row;
+		gap: 2rem;
+	}
+
+	.param {
+		display: flex;
+		flex-direction: row;
+		gap: 6px;
+		align-items: center;
+		margin: 4px;
+	}
+</style>
