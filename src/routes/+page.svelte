@@ -210,7 +210,7 @@
 		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n\n`;
 
 		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
-		FileSaver.saveAs(blob, `xpeedtest-${started}.csv`);
+		FileSaver.saveAs(blob, `xpeedtest-${started.replaceAll(',', '_')}.csv`);
 	};
 </script>
 
