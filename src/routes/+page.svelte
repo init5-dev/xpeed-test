@@ -226,7 +226,7 @@
 				type="number"
 				bind:value={iterations}
 				min={5}
-				max={100}
+				max={1000}
 			/>
 		</div>
 		<div class="param">
@@ -248,7 +248,7 @@
 	</div>
 	{#if error}
 		<Alert color="red" class="flex items-center gap-4">
-			<span>Iterations must be between 5 and 100, and pause between 15 and 60 s.</span>
+			<span>Iterations must be between 5 and 1000, and pause between 15 and 60 s.</span>
 		</Alert>
 	{/if}
 
