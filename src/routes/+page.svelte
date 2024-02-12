@@ -47,6 +47,11 @@
 
 	const data = [];
 
+	const median = {
+		download: 0,
+		upload: 0
+	};
+
 	const avg = {
 		download: 0,
 		upload: 0
@@ -95,6 +100,45 @@
 
 	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
 
+	function getMedian(values) {
+		// Validar que el array no esté vacío
+		if (values.length === 0) {
+			return undefined;
+		}
+
+		// Ordenar el array de menor a mayor
+		values.sort((a, b) => a - b);
+
+		// Calcular la posición del valor central
+		const middleIndex = Math.floor((values.length - 1) / 2);
+
+		// Si el array tiene un número impar de elementos, la mediana es el valor central
+		if (values.length % 2 === 1) {
+			return values[middleIndex];
+		}
+
+		// Si el array tiene un número par de elementos, la mediana es la media de los dos valores centrales
+		return (values[middleIndex] + values[middleIndex + 1]) / 2;
+	}
+
+
+	const calcMedian = () => {
+		console.log(JSON.stringify(data, null, 2));
+
+		const downloadValues = []
+		const uploadValues = []
+
+		data.forEach((item) => {
+			downloadValues.push(Number(item.download))
+			uploadValues.push(Number(item.upload))
+		});
+
+		median.download = getMedian(downloadValues)
+		median.upload = getMedian(uploadValues)
+
+		console.log('AVG:', median);
+	};
+
 	const calcAvg = () => {
 		console.log(JSON.stringify(data, null, 2));
 
@@ -125,6 +169,7 @@
 			waiting = false;
 
 			calcAvg();
+			calcMedian()
 
 			return;
 		}
@@ -197,6 +242,7 @@
 		finished = true;
 		waiting = false;
 		calcAvg();
+		calcMedian()
 		console.log('Stopped');
 	};
 
@@ -207,7 +253,8 @@
 			csvContent += `"${item.started}";${item.download};${item.upload}\n`;
 		});
 
-		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n\n`;
+		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n`;
+		csvContent += `MEDIAN;${median.download.toFixed(2)};${median.upload.toFixed(2)}\n\n`;
 
 		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
 		FileSaver.saveAs(blob, `xpeedtest-${started.replaceAll(',', '_')}.csv`);
@@ -271,6 +318,10 @@
 			<span
 				><strong>AVERAGE: </strong>{format(avg.download.toFixed(2))} | {format(
 					avg.upload.toFixed(2)
+				)}</span>
+				<span
+				><strong>MEDIAN: </strong>{format(median.download.toFixed(2))} | {format(
+					median.upload.toFixed(2)
 				)}</span
 			>
 		</Alert>
