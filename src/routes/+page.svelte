@@ -96,9 +96,12 @@
 
 	const run = async () => {
 		if (i >= iterations) {
+      i = 0
+      
 			running = false;
 			finished = true;
-
+      waiting = false
+     
 			console.log(JSON.stringify(data, null, 2));
 
 			data.forEach((item) => {
