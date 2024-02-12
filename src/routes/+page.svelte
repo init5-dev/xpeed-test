@@ -255,7 +255,7 @@
 	{#if running && !waiting}
 		<Alert color="green" class="flex items-center gap-4">
 			<Spinner size={10} />
-			<span>Running tests...</span>
+			<span>Running iteration {i}...</span>
 		</Alert>
 	{/if}
 
@@ -280,16 +280,16 @@
 	{#if showTable}
 		<Table class="w-full">
 			<TableHead>
-				<TableHeadCell>Time</TableHeadCell>
-				<TableHeadCell>Test</TableHeadCell>
+				<TableHeadCell>Iteration</TableHeadCell>
+				<TableHeadCell>Started at</TableHeadCell>
 				<TableHeadCell>Download</TableHeadCell>
 				<TableHeadCell>Upload</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#each data as item, index}
 					<TableBodyRow>
-						<TableBodyCell>{item.started}</TableBodyCell>
 						<TableBodyCell>{index + 1}</TableBodyCell>
+						<TableBodyCell>{item.started}</TableBodyCell>
 						<TableBodyCell class={index === i - 1 && downloadColor}
 							>{format(item.download)}</TableBodyCell
 						>
