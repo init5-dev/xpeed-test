@@ -110,7 +110,7 @@
 	};
 
 	const run = async () => {
-		if (iterations < 5 || iterations > 100 || interval < 15 || interval > 60) {
+		if (iterations < 5 || iterations > 1000 || interval < 15 || interval > 60) {
 			error = true;
 			return;
 		} else {
