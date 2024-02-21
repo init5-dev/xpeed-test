@@ -13,144 +13,60 @@
 		Spinner,
 		Alert
 	} from 'flowbite-svelte';
-	import { PlaySolid, CloseSolid, DownloadSolid } from 'flowbite-svelte-icons';
+	import { PlaySolid, CloseSolid, DownloadSolid, PauseSolid } from 'flowbite-svelte-icons';
 	import SpeedTest from '@cloudflare/speedtest';
 	import FileSaver from 'file-saver';
 
-	const now = () => {
-		return new Date().toLocaleDateString('en-us', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: 'numeric'
-		});
-	};
+	import { getCurrentTime, sleep } from '$lib/utils/time';
+	import { Mbps, addUnitySufix } from '$lib/utils/formatting';
+	import { calcAvg, calcMedian } from '$lib/utils/stats';
 
-	let showTable = false;
+	let showTable;
 
-	let iterations = 10;
-	let interval = 15;
+	let iterations;
+	let interval;
 
-	let running = false;
-	let waiting = false;
-	let finished = false;
-	let error = false;
+	let running;
+	let waiting;
+	let finished;
+	let error;
 
-	let downloadColor = '';
-	let uploadColor = '';
+	let downloadColor;
+	let uploadColor;
 
-	let i = 0;
+	let i;
 
-	const started = now();
+	let started;
 
-	const data = [];
+	let data;
+	let median;
+	let avg;
 
-	const median = {
-		download: 0,
-		upload: 0
-	};
+	let test;
 
-	const avg = {
-		download: 0,
-		upload: 0
-	};
+	const restart = () => {
+		showTable = false;
 
-	const test = new SpeedTest({ autoStart: false });
+		iterations = 10;
+		interval = 15;
 
-	const Mbps = (bps, sufix = true) => {
-		if (isNaN(bps)) {
-			return 'N\\A';
-		}
-		return (bps / 1024 / 1024).toFixed(2) + (sufix ? ' Mbps' : '');
-	};
+		running = false;
+		waiting = false;
+		finished = false;
+		error = false;
 
-	const format = (Mbps) => {
-		if (Mbps === 'N\\A') return Mbps;
+		downloadColor = '';
+		uploadColor = '';
 
-		return Mbps + ' Mbps';
-	};
+		i = 0;
 
-	function getFormattedDateTime(format = 'YYYY-MM-DD HH:mm:ss') {
-		const now = new Date();
-		const options = {
-			year: 'numeric',
-			month: 'numeric',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: 'numeric',
-			second: 'numeric',
-			hour12: false,
-			timeZone: 'UTC'
-		};
+		started = getCurrentTime();
 
-		// Intl.DateTimeFormat can be used for more complex formatting
-		const formattedDateTime = new Intl.DateTimeFormat('en-US', options).format(now);
+		data = [];
+		median = {};
+		avg = {};
 
-		// Replace placeholders in the format string
-		return format
-			.replace(/YYYY/g, formattedDateTime.getFullYear())
-			.replace(/MM/g, formattedDateTime.getMonth() + 1)
-			.replace(/DD/g, formattedDateTime.getDate())
-			.replace(/HH/g, formattedDateTime.getHours())
-			.replace(/mm/g, formattedDateTime.getMinutes())
-			.replace(/ss/g, formattedDateTime.getSeconds());
-	}
-
-	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
-
-	function getMedian(values) {
-		// Validar que el array no esté vacío
-		if (values.length === 0) {
-			return undefined;
-		}
-
-		// Ordenar el array de menor a mayor
-		values.sort((a, b) => a - b);
-
-		// Calcular la posición del valor central
-		const middleIndex = Math.floor((values.length - 1) / 2);
-
-		// Si el array tiene un número impar de elementos, la mediana es el valor central
-		if (values.length % 2 === 1) {
-			return values[middleIndex];
-		}
-
-		// Si el array tiene un número par de elementos, la mediana es la media de los dos valores centrales
-		return (values[middleIndex] + values[middleIndex + 1]) / 2;
-	}
-
-
-	const calcMedian = () => {
-		console.log(JSON.stringify(data, null, 2));
-
-		const downloadValues = []
-		const uploadValues = []
-
-		data.forEach((item) => {
-			downloadValues.push(Number(item.download))
-			uploadValues.push(Number(item.upload))
-		});
-
-		median.download = getMedian(downloadValues)
-		median.upload = getMedian(uploadValues)
-
-		console.log('AVG:', median);
-	};
-
-	const calcAvg = () => {
-		console.log(JSON.stringify(data, null, 2));
-
-		data.forEach((item) => {
-			if (!isNaN(item.download)) avg.download += Number(item.download);
-			if (!isNaN(item.upload)) avg.upload += Number(item.upload);
-		});
-
-		avg.download = avg.download / data.length;
-		avg.upload = avg.upload / data.length;
-
-		console.log('AVG:', avg);
+		test = new SpeedTest({ autoStart: false });
 	};
 
 	const run = async () => {
@@ -168,8 +84,8 @@
 			finished = true;
 			waiting = false;
 
-			calcAvg();
-			calcMedian()
+			avg = calcAvg();
+			median = calcMedian();
 
 			return;
 		}
@@ -195,7 +111,7 @@
 		running = true;
 
 		data.push({
-			started: now(),
+			started: getCurrentTime(),
 			download: 'N\\A',
 			upload: 'N\\A'
 		});
@@ -241,8 +157,8 @@
 		uploadColor = '';
 		finished = true;
 		waiting = false;
-		calcAvg();
-		calcMedian()
+		avg = calcAvg(data);
+		median = calcMedian(data);
 		console.log('Stopped');
 	};
 
@@ -259,32 +175,36 @@
 		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
 		FileSaver.saveAs(blob, `xpeedtest-${started.replaceAll(',', '_')}.csv`);
 	};
+
+	restart()
+
 </script>
 
 <div class="main">
 	<br />
 	<Heading tag="h1" align="center">Xpeed Test</Heading>
-	<Alert color='yellow'>
-		<a target="_blank" href="https://github.com/init5-dev/xpeed-test"><p>Visit the repo on <strong>Github</strong></p></a>
+	<Alert color="yellow">
+		<a target="_blank" href="https://github.com/init5-dev/xpeed-test"
+			><p>Visit the repo on <strong>Github</strong></p></a
+		>
 	</Alert>
 	<br />
-	<div class="params-group">
-		<div class="param">
+	<div class="items-center sm:flex sm:flex-col md:flex-row">
+		<div class="flex items-center gap-2 p-1 sm:my-2">
 			<Label for="iterations">Iterations</Label>
 			<Input
 				disabled={running || waiting}
-				class="input"
 				type="number"
 				bind:value={iterations}
 				min={5}
 				max={1000}
 			/>
 		</div>
-		<div class="param">
+		<div class="flex items-center gap-2 p-1 sm:my-2 md:ml-2">
 			<Label for="interval">Pause</Label>
 			<Input disabled={running || waiting} type="number" bind:value={interval} min={15} max={60} />
 		</div>
-		<div class="param">
+		<div class="flex items-center justify-center gap-2 p-1 sm:my-2 md:ml-2">
 			<Button disabled={running || waiting} on:click={run}>
 				{#if running}
 					<Spinner size={4} />
@@ -293,6 +213,9 @@
 				{/if}
 			</Button>
 			<Button on:click={stop} disabled={!running}>
+				<PauseSolid size="sm" />
+			</Button>
+			<Button on:click={restart}>
 				<CloseSolid size="sm" />
 			</Button>
 		</div>
@@ -320,11 +243,12 @@
 	{#if finished}
 		<Alert color="green" class="flex items-center gap-4">
 			<span
-				><strong>AVERAGE: </strong>{format(avg.download.toFixed(2))} | {format(
+				><strong>AVERAGE: </strong>{addUnitySufix(avg.download.toFixed(2))} | {addUnitySufix(
 					avg.upload.toFixed(2)
-				)}</span>
-				<span
-				><strong>MEDIAN: </strong>{format(median.download.toFixed(2))} | {format(
+				)}</span
+			>
+			<span
+				><strong>MEDIAN: </strong>{addUnitySufix(median.download.toFixed(2))} | {addUnitySufix(
 					median.upload.toFixed(2)
 				)}</span
 			>
@@ -346,10 +270,10 @@
 						<TableBodyCell>{index + 1}</TableBodyCell>
 						<TableBodyCell>{item.started}</TableBodyCell>
 						<TableBodyCell class={index === i - 1 && downloadColor}
-							>{format(item.download)}</TableBodyCell
+							>{addUnitySufix(item.download)}</TableBodyCell
 						>
 						<TableBodyCell class={index === i - 1 && uploadColor}
-							>{format(item.upload)}</TableBodyCell
+							>{addUnitySufix(item.upload)}</TableBodyCell
 						>
 					</TableBodyRow>
 				{/each}
@@ -366,19 +290,5 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 10px;
-	}
-
-	.params-group {
-		display: flex;
-		flex-direction: row;
-		gap: 2rem;
-	}
-
-	.param {
-		display: flex;
-		flex-direction: row;
-		gap: 6px;
-		align-items: center;
-		margin: 4px;
 	}
 </style>
