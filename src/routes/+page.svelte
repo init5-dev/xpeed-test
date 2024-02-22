@@ -14,12 +14,20 @@
 		Alert
 	} from 'flowbite-svelte';
 	import { PlaySolid, CloseSolid, DownloadSolid, PauseSolid } from 'flowbite-svelte-icons';
+	import XTable from '$lib/components/XTable.svelte'
+
 	import SpeedTest from '@cloudflare/speedtest';
-	import FileSaver from 'file-saver';
+	
 
 	import { getCurrentTime, sleep } from '$lib/utils/time';
 	import { Mbps, addUnitySufix } from '$lib/utils/formatting';
 	import { calcAvg, calcMedian } from '$lib/utils/stats';
+	import XResume from "$lib/components/XResume.svelte";
+	import XRunningMessage from "$lib/components/XRunningMessage.svelte";
+	import XWaitingMessage from "$lib/components/XWaitingMessage.svelte"
+	import XErrorMessage from "$lib/components/XErrorMessage.svelte"
+	import XControls from "$lib/components/XControls.svelte";
+	import XHeading from "$lib/components/XHeading.svelte";
 
 	let showTable;
 
@@ -162,133 +170,31 @@
 		console.log('Stopped');
 	};
 
-	const saveFile = async () => {
-		let csvContent = 'Time;Download (Mbps);Upload (Mbps)\n';
-
-		data.forEach((item) => {
-			csvContent += `"${item.started}";${item.download};${item.upload}\n`;
-		});
-
-		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n`;
-		csvContent += `MEDIAN;${median.download.toFixed(2)};${median.upload.toFixed(2)}\n\n`;
-
-		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
-		FileSaver.saveAs(blob, `xpeedtest-${started.replaceAll(',', '_')}.csv`);
-	};
-
 	restart()
 
 </script>
 
 <div class="main">
-	<br />
-	<Heading tag="h1" align="center">Xpeed Test</Heading>
-	<Alert color="yellow">
-		<a target="_blank" href="https://github.com/init5-dev/xpeed-test"
-			><p>Visit the repo on <strong>Github</strong></p></a
-		>
-	</Alert>
-	<br />
-	<div class="items-center sm:flex sm:flex-col md:flex-row">
-		<div class="flex items-center gap-2 p-1 sm:my-2">
-			<Label for="iterations">Iterations</Label>
-			<Input
-				disabled={running || waiting}
-				type="number"
-				bind:value={iterations}
-				min={5}
-				max={1000}
-			/>
-		</div>
-		<div class="flex items-center gap-2 p-1 sm:my-2 md:ml-2">
-			<Label for="interval">Pause</Label>
-			<Input disabled={running || waiting} type="number" bind:value={interval} min={15} max={60} />
-		</div>
-		<div class="flex items-center justify-center gap-2 p-1 sm:my-2 md:ml-2">
-			<Button disabled={running || waiting} on:click={run}>
-				{#if running}
-					<Spinner size={4} />
-				{:else}
-					<PlaySolid size="sm" />
-				{/if}
-			</Button>
-			<Button on:click={stop} disabled={!running}>
-				<PauseSolid size="sm" />
-			</Button>
-			<Button on:click={restart}>
-				<CloseSolid size="sm" />
-			</Button>
-		</div>
-	</div>
+	<XHeading />	
+	<XControls {running} {waiting} {iterations} {interval} {run} {stop} {restart} />
+	
 	{#if error}
-		<Alert color="red" class="flex items-center gap-4">
-			<span>Iterations must be between 5 and 1000, and pause between 15 and 60 s.</span>
-		</Alert>
+		<XErrorMessage />
 	{/if}
 
 	{#if running && !waiting}
-		<Alert color="green" class="flex items-center gap-4">
-			<Spinner size={10} />
-			<span>Running iteration {i}...</span>
-		</Alert>
+		<XRunningMessage {i} />
 	{/if}
 
 	{#if running && waiting}
-		<Alert color="yellow" class="flex items-center gap-4">
-			<Spinner size={10} />
-			<span>Waiting {interval} seconds for running iteration {i + 1}...</span>
-		</Alert>
+		<XWaitingMessage {interval} {i} />
 	{/if}
 
 	{#if finished}
-		<Alert color="green" class="flex items-center gap-4">
-			<span
-				><strong>AVERAGE: </strong>{addUnitySufix(avg.download.toFixed(2))} | {addUnitySufix(
-					avg.upload.toFixed(2)
-				)}</span
-			>
-			<span
-				><strong>MEDIAN: </strong>{addUnitySufix(median.download.toFixed(2))} | {addUnitySufix(
-					median.upload.toFixed(2)
-				)}</span
-			>
-		</Alert>
-		<Button on:click={saveFile}><DownloadSolid /></Button>
+		<XResume {data} {started} {avg} {median} />
 	{/if}
 
 	{#if showTable}
-		<Table class="w-full">
-			<TableHead>
-				<TableHeadCell>Iteration</TableHeadCell>
-				<TableHeadCell>Started at</TableHeadCell>
-				<TableHeadCell>Download</TableHeadCell>
-				<TableHeadCell>Upload</TableHeadCell>
-			</TableHead>
-			<TableBody>
-				{#each data as item, index}
-					<TableBodyRow>
-						<TableBodyCell>{index + 1}</TableBodyCell>
-						<TableBodyCell>{item.started}</TableBodyCell>
-						<TableBodyCell class={index === i - 1 && downloadColor}
-							>{addUnitySufix(item.download)}</TableBodyCell
-						>
-						<TableBodyCell class={index === i - 1 && uploadColor}
-							>{addUnitySufix(item.upload)}</TableBodyCell
-						>
-					</TableBodyRow>
-				{/each}
-			</TableBody>
-		</Table>
+		<XTable {data} {i} {downloadColor} {uploadColor} />
 	{/if}
 </div>
-
-<style>
-	.main {
-		width: 90vw;
-		margin-left: 5vw;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 10px;
-	}
-</style>
