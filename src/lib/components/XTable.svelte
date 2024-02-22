@@ -1,4 +1,6 @@
 <script>
+// @ts-nocheck
+
   import { Table, TableHead, TableHeadCell, TableBody, TableBodyRow, TableBodyCell } from "flowbite-svelte";
   import { addUnitySufix } from "$lib/utils/formatting";
   
@@ -14,6 +16,7 @@
 		<TableHeadCell>Started at</TableHeadCell>
 		<TableHeadCell>Download</TableHeadCell>
 		<TableHeadCell>Upload</TableHeadCell>
+		<TableHeadCell>Location</TableHeadCell>
 	</TableHead>
 	<TableBody>
 		{#each data as item, index}
@@ -25,6 +28,9 @@
 				>
 				<TableBodyCell class={index === i - 1 && uploadColor}
 					>{addUnitySufix(item.upload)}</TableBodyCell
+				>
+				<TableBodyCell
+					>{`${item.coordinates.latitude}, ${item.coordinates.longitude}`}</TableBodyCell
 				>
 			</TableBodyRow>
 		{/each}

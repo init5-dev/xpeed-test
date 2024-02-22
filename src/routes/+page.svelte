@@ -1,5 +1,5 @@
 <script>
-// @ts-nocheck
+	// @ts-nocheck
 
 	import {
 		Input,
@@ -16,20 +16,19 @@
 		Alert
 	} from 'flowbite-svelte';
 	import { PlaySolid, CloseSolid, DownloadSolid, PauseSolid } from 'flowbite-svelte-icons';
-	import XTable from '$lib/components/XTable.svelte'
+	import XTable from '$lib/components/XTable.svelte';
+
+	import XResume from '$lib/components/XResume.svelte';
+	import XRunningMessage from '$lib/components/XRunningMessage.svelte';
+	import XWaitingMessage from '$lib/components/XWaitingMessage.svelte';
+	import XErrorMessage from '$lib/components/XErrorMessage.svelte';
+	import XControls from '$lib/components/XControls.svelte';
+	import XHeading from '$lib/components/XHeading.svelte';
 
 	import SpeedTest from '@cloudflare/speedtest';
-	
-
 	import { getCurrentTime, sleep } from '$lib/utils/time';
-	import { Mbps, addUnitySufix } from '$lib/utils/formatting';
+	import { Mbps } from '$lib/utils/formatting';
 	import { calcAvg, calcMedian } from '$lib/utils/stats';
-	import XResume from "$lib/components/XResume.svelte";
-	import XRunningMessage from "$lib/components/XRunningMessage.svelte";
-	import XWaitingMessage from "$lib/components/XWaitingMessage.svelte"
-	import XErrorMessage from "$lib/components/XErrorMessage.svelte"
-	import XControls from "$lib/components/XControls.svelte";
-	import XHeading from "$lib/components/XHeading.svelte";
 
 	let showTable;
 
@@ -51,8 +50,37 @@
 	let data;
 	let median;
 	let avg;
+	let coordinates;
 
 	let test;
+
+	const getLocation = () => {
+		try {
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(
+					(location) => {
+						const { latitude, longitude, accuracy } = location.coords;
+						console.log(latitude, longitude)
+
+						coordinates = {
+							latitude,
+							longitude,
+							accuracy
+						}
+
+						console.log('COORD:', coordinates)
+					},
+					(error) => {
+						console.log('Error getting location: ' + error.message);
+					}
+				);
+			} else {
+				console.log('Your browser does not support geolocation.');
+			}
+		} catch (error) {
+			// Skipping...
+		}
+	};
 
 	const restart = () => {
 		showTable = false;
@@ -75,6 +103,8 @@
 		data = [];
 		median = {};
 		avg = {};
+		
+		getLocation();
 
 		test = new SpeedTest({ autoStart: false });
 	};
@@ -120,10 +150,13 @@
 		test.restart();
 		running = true;
 
+		getLocation()
+
 		data.push({
 			started: getCurrentTime(),
 			download: 'N\\A',
-			upload: 'N\\A'
+			upload: 'N\\A',
+			coordinates 
 		});
 
 		test.onResultsChange = (results) => {
@@ -145,6 +178,10 @@
 					uploadColor = uploadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
 				}
 			}
+
+			getLocation()
+
+			data[data.length - 1].coordinates = coordinates
 		};
 
 		test.onFinish = (results) => {
@@ -172,14 +209,13 @@
 		console.log('Stopped');
 	};
 
-	restart()
-
+	restart();
 </script>
 
 <div class="main">
-	<XHeading />	
+	<XHeading />
 	<XControls {running} {waiting} {iterations} {interval} {run} {stop} {restart} />
-	
+
 	{#if error}
 		<XErrorMessage />
 	{/if}
