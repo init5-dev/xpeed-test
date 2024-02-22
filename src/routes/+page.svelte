@@ -1,4 +1,6 @@
 <script>
+	// @ts-nocheck
+
 	import {
 		Input,
 		Label,
@@ -13,144 +15,98 @@
 		Spinner,
 		Alert
 	} from 'flowbite-svelte';
-	import { PlaySolid, CloseSolid, DownloadSolid } from 'flowbite-svelte-icons';
+	import { PlaySolid, CloseSolid, DownloadSolid, PauseSolid } from 'flowbite-svelte-icons';
+	import XTable from '$lib/components/XTable.svelte';
+
+	import XResume from '$lib/components/XResume.svelte';
+	import XRunningMessage from '$lib/components/XRunningMessage.svelte';
+	import XWaitingMessage from '$lib/components/XWaitingMessage.svelte';
+	import XErrorMessage from '$lib/components/XErrorMessage.svelte';
+	import XControls from '$lib/components/XControls.svelte';
+	import XHeading from '$lib/components/XHeading.svelte';
+
 	import SpeedTest from '@cloudflare/speedtest';
-	import FileSaver from 'file-saver';
+	import { getCurrentTime, sleep } from '$lib/utils/time';
+	import { Mbps } from '$lib/utils/formatting';
+	import { calcAvg, calcMedian } from '$lib/utils/stats';
 
-	const now = () => {
-		return new Date().toLocaleDateString('en-us', {
-			weekday: 'long',
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: 'numeric'
-		});
-	};
+	let showTable;
 
-	let showTable = false;
+	let iterations;
+	let interval;
 
-	let iterations = 10;
-	let interval = 15;
+	let running;
+	let waiting;
+	let finished;
+	let error;
 
-	let running = false;
-	let waiting = false;
-	let finished = false;
-	let error = false;
+	let downloadColor;
+	let uploadColor;
 
-	let downloadColor = '';
-	let uploadColor = '';
+	let i;
 
-	let i = 0;
+	let started;
 
-	const started = now();
+	let data;
+	let median;
+	let avg;
+	let coordinates;
 
-	const data = [];
+	let test;
 
-	const median = {
-		download: 0,
-		upload: 0
-	};
+	const getLocation = () => {
+		try {
+			if (navigator.geolocation) {
+				navigator.geolocation.getCurrentPosition(
+					(location) => {
+						const { latitude, longitude, accuracy } = location.coords;
+						console.log(latitude, longitude)
 
-	const avg = {
-		download: 0,
-		upload: 0
-	};
+						coordinates = {
+							latitude,
+							longitude,
+							accuracy
+						}
 
-	const test = new SpeedTest({ autoStart: false });
-
-	const Mbps = (bps, sufix = true) => {
-		if (isNaN(bps)) {
-			return 'N\\A';
+						console.log('COORD:', coordinates)
+					},
+					(error) => {
+						console.log('Error getting location: ' + error.message);
+					}
+				);
+			} else {
+				console.log('Your browser does not support geolocation.');
+			}
+		} catch (error) {
+			// Skipping...
 		}
-		return (bps / 1024 / 1024).toFixed(2) + (sufix ? ' Mbps' : '');
 	};
 
-	const format = (Mbps) => {
-		if (Mbps === 'N\\A') return Mbps;
+	const restart = () => {
+		showTable = false;
 
-		return Mbps + ' Mbps';
-	};
+		iterations = 10;
+		interval = 15;
 
-	function getFormattedDateTime(format = 'YYYY-MM-DD HH:mm:ss') {
-		const now = new Date();
-		const options = {
-			year: 'numeric',
-			month: 'numeric',
-			day: 'numeric',
-			hour: 'numeric',
-			minute: 'numeric',
-			second: 'numeric',
-			hour12: false,
-			timeZone: 'UTC'
-		};
+		running = false;
+		waiting = false;
+		finished = false;
+		error = false;
 
-		// Intl.DateTimeFormat can be used for more complex formatting
-		const formattedDateTime = new Intl.DateTimeFormat('en-US', options).format(now);
+		downloadColor = '';
+		uploadColor = '';
 
-		// Replace placeholders in the format string
-		return format
-			.replace(/YYYY/g, formattedDateTime.getFullYear())
-			.replace(/MM/g, formattedDateTime.getMonth() + 1)
-			.replace(/DD/g, formattedDateTime.getDate())
-			.replace(/HH/g, formattedDateTime.getHours())
-			.replace(/mm/g, formattedDateTime.getMinutes())
-			.replace(/ss/g, formattedDateTime.getSeconds());
-	}
+		i = 0;
 
-	const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
+		started = getCurrentTime();
 
-	function getMedian(values) {
-		// Validar que el array no esté vacío
-		if (values.length === 0) {
-			return undefined;
-		}
+		data = [];
+		median = {};
+		avg = {};
+		
+		getLocation();
 
-		// Ordenar el array de menor a mayor
-		values.sort((a, b) => a - b);
-
-		// Calcular la posición del valor central
-		const middleIndex = Math.floor((values.length - 1) / 2);
-
-		// Si el array tiene un número impar de elementos, la mediana es el valor central
-		if (values.length % 2 === 1) {
-			return values[middleIndex];
-		}
-
-		// Si el array tiene un número par de elementos, la mediana es la media de los dos valores centrales
-		return (values[middleIndex] + values[middleIndex + 1]) / 2;
-	}
-
-
-	const calcMedian = () => {
-		console.log(JSON.stringify(data, null, 2));
-
-		const downloadValues = []
-		const uploadValues = []
-
-		data.forEach((item) => {
-			downloadValues.push(Number(item.download))
-			uploadValues.push(Number(item.upload))
-		});
-
-		median.download = getMedian(downloadValues)
-		median.upload = getMedian(uploadValues)
-
-		console.log('AVG:', median);
-	};
-
-	const calcAvg = () => {
-		console.log(JSON.stringify(data, null, 2));
-
-		data.forEach((item) => {
-			if (!isNaN(item.download)) avg.download += Number(item.download);
-			if (!isNaN(item.upload)) avg.upload += Number(item.upload);
-		});
-
-		avg.download = avg.download / data.length;
-		avg.upload = avg.upload / data.length;
-
-		console.log('AVG:', avg);
+		test = new SpeedTest({ autoStart: false });
 	};
 
 	const run = async () => {
@@ -168,8 +124,8 @@
 			finished = true;
 			waiting = false;
 
-			calcAvg();
-			calcMedian()
+			avg = calcAvg();
+			median = calcMedian();
 
 			return;
 		}
@@ -194,10 +150,13 @@
 		test.restart();
 		running = true;
 
+		getLocation()
+
 		data.push({
-			started: now(),
+			started: getCurrentTime(),
 			download: 'N\\A',
-			upload: 'N\\A'
+			upload: 'N\\A',
+			coordinates 
 		});
 
 		test.onResultsChange = (results) => {
@@ -219,6 +178,10 @@
 					uploadColor = uploadColor === 'text-red-800' ? 'text-green-800' : 'text-red-800';
 				}
 			}
+
+			getLocation()
+
+			data[data.length - 1].coordinates = coordinates
 		};
 
 		test.onFinish = (results) => {
@@ -241,144 +204,35 @@
 		uploadColor = '';
 		finished = true;
 		waiting = false;
-		calcAvg();
-		calcMedian()
+		avg = calcAvg(data);
+		median = calcMedian(data);
 		console.log('Stopped');
 	};
 
-	const saveFile = async () => {
-		let csvContent = 'Time;Download (Mbps);Upload (Mbps)\n';
-
-		data.forEach((item) => {
-			csvContent += `"${item.started}";${item.download};${item.upload}\n`;
-		});
-
-		csvContent += `\nAVERAGE;${avg.download.toFixed(2)};${avg.upload.toFixed(2)}\n`;
-		csvContent += `MEDIAN;${median.download.toFixed(2)};${median.upload.toFixed(2)}\n\n`;
-
-		const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8' });
-		FileSaver.saveAs(blob, `xpeedtest-${started.replaceAll(',', '_')}.csv`);
-	};
+	restart();
 </script>
 
 <div class="main">
-	<br />
-	<Heading tag="h1" align="center">Xpeed Test</Heading>
-	<Alert color='yellow'>
-		<a target="_blank" href="https://github.com/init5-dev/xpeed-test"><p>Visit the repo on <strong>Github</strong></p></a>
-	</Alert>
-	<br />
-	<div class="params-group">
-		<div class="param">
-			<Label for="iterations">Iterations</Label>
-			<Input
-				disabled={running || waiting}
-				class="input"
-				type="number"
-				bind:value={iterations}
-				min={5}
-				max={1000}
-			/>
-		</div>
-		<div class="param">
-			<Label for="interval">Pause</Label>
-			<Input disabled={running || waiting} type="number" bind:value={interval} min={15} max={60} />
-		</div>
-		<div class="param">
-			<Button disabled={running || waiting} on:click={run}>
-				{#if running}
-					<Spinner size={4} />
-				{:else}
-					<PlaySolid size="sm" />
-				{/if}
-			</Button>
-			<Button on:click={stop} disabled={!running}>
-				<CloseSolid size="sm" />
-			</Button>
-		</div>
-	</div>
+	<XHeading />
+	<XControls {running} {waiting} {iterations} {interval} {run} {stop} {restart} />
+
 	{#if error}
-		<Alert color="red" class="flex items-center gap-4">
-			<span>Iterations must be between 5 and 1000, and pause between 15 and 60 s.</span>
-		</Alert>
+		<XErrorMessage />
 	{/if}
 
 	{#if running && !waiting}
-		<Alert color="green" class="flex items-center gap-4">
-			<Spinner size={10} />
-			<span>Running iteration {i}...</span>
-		</Alert>
+		<XRunningMessage {i} />
 	{/if}
 
 	{#if running && waiting}
-		<Alert color="yellow" class="flex items-center gap-4">
-			<Spinner size={10} />
-			<span>Waiting {interval} seconds for running iteration {i + 1}...</span>
-		</Alert>
+		<XWaitingMessage {interval} {i} />
 	{/if}
 
 	{#if finished}
-		<Alert color="green" class="flex items-center gap-4">
-			<span
-				><strong>AVERAGE: </strong>{format(avg.download.toFixed(2))} | {format(
-					avg.upload.toFixed(2)
-				)}</span>
-				<span
-				><strong>MEDIAN: </strong>{format(median.download.toFixed(2))} | {format(
-					median.upload.toFixed(2)
-				)}</span
-			>
-		</Alert>
-		<Button on:click={saveFile}><DownloadSolid /></Button>
+		<XResume {data} {started} {avg} {median} />
 	{/if}
 
 	{#if showTable}
-		<Table class="w-full">
-			<TableHead>
-				<TableHeadCell>Iteration</TableHeadCell>
-				<TableHeadCell>Started at</TableHeadCell>
-				<TableHeadCell>Download</TableHeadCell>
-				<TableHeadCell>Upload</TableHeadCell>
-			</TableHead>
-			<TableBody>
-				{#each data as item, index}
-					<TableBodyRow>
-						<TableBodyCell>{index + 1}</TableBodyCell>
-						<TableBodyCell>{item.started}</TableBodyCell>
-						<TableBodyCell class={index === i - 1 && downloadColor}
-							>{format(item.download)}</TableBodyCell
-						>
-						<TableBodyCell class={index === i - 1 && uploadColor}
-							>{format(item.upload)}</TableBodyCell
-						>
-					</TableBodyRow>
-				{/each}
-			</TableBody>
-		</Table>
+		<XTable {data} {i} {downloadColor} {uploadColor} />
 	{/if}
 </div>
-
-<style>
-	.main {
-		width: 90vw;
-		margin-left: 5vw;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.params-group {
-		display: flex;
-		flex-direction: row;
-		gap: 2rem;
-	}
-
-	.param {
-		display: flex;
-		flex-direction: row;
-		gap: 6px;
-		align-items: center;
-		margin: 4px;
-	}
-</style>
