@@ -2402,6 +2402,11 @@ svelte-check@^3.6.0:
     postcss "^8.4.29"
     postcss-scss "^4.0.8"
 
+svelte-geolocation@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/svelte-geolocation/-/svelte-geolocation-0.3.0.tgz#560f404565c8b489a2ecd087a60c1ae930532390"
+  integrity sha512-6SV3vENzyWSiLRLT2uVgl7ZHxU1XY0Uy4dSKHLg3iedagjIoL+u/BJylxuQY2i5ZdJl9gg+09B3oKfUrknExJQ==
+
 svelte-hmr@^0.15.3:
   version "0.15.3"
   resolved "https://registry.yarnpkg.com/svelte-hmr/-/svelte-hmr-0.15.3.tgz#df54ccde9be3f091bf5f18fc4ef7b8eb6405fbe6"
