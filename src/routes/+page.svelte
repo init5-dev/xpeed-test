@@ -1,23 +1,7 @@
 <script>
 	// @ts-nocheck
 
-	import {
-		Input,
-		Label,
-		Button,
-		Heading,
-		Table,
-		TableHead,
-		TableHeadCell,
-		TableBody,
-		TableBodyRow,
-		TableBodyCell,
-		Spinner,
-		Alert
-	} from 'flowbite-svelte';
-	import { PlaySolid, CloseSolid, DownloadSolid, PauseSolid } from 'flowbite-svelte-icons';
 	import XTable from '$lib/components/XTable.svelte';
-
 	import XResume from '$lib/components/XResume.svelte';
 	import XRunningMessage from '$lib/components/XRunningMessage.svelte';
 	import XWaitingMessage from '$lib/components/XWaitingMessage.svelte';
@@ -26,6 +10,7 @@
 	import XHeading from '$lib/components/XHeading.svelte';
 
 	import SpeedTest from '@cloudflare/speedtest';
+	import Geolocation from "svelte-geolocation";
 	import { getCurrentTime, sleep } from '$lib/utils/time';
 	import { Mbps } from '$lib/utils/formatting';
 	import { calcAvg, calcMedian } from '$lib/utils/stats';
@@ -50,37 +35,9 @@
 	let data;
 	let median;
 	let avg;
-	let coordinates;
+	let coordinates = []
 
 	let test;
-
-	const getLocation = () => {
-		try {
-			if (navigator.geolocation) {
-				navigator.geolocation.getCurrentPosition(
-					(location) => {
-						const { latitude, longitude, accuracy } = location.coords;
-						console.log(latitude, longitude)
-
-						coordinates = {
-							latitude,
-							longitude,
-							accuracy
-						}
-
-						console.log('COORD:', coordinates)
-					},
-					(error) => {
-						console.log('Error getting location: ' + error.message);
-					}
-				);
-			} else {
-				console.log('Your browser does not support geolocation.');
-			}
-		} catch (error) {
-			// Skipping...
-		}
-	};
 
 	const restart = () => {
 		showTable = false;
@@ -103,8 +60,6 @@
 		data = [];
 		median = {};
 		avg = {};
-		
-		getLocation();
 
 		test = new SpeedTest({ autoStart: false });
 	};
@@ -150,13 +105,14 @@
 		test.restart();
 		running = true;
 
-		getLocation()
-
 		data.push({
 			started: getCurrentTime(),
 			download: 'N\\A',
 			upload: 'N\\A',
-			coordinates 
+			coordinates: {
+				latitude: coordinates[0],
+				longitude: coordinates[1]
+			}
 		});
 
 		test.onResultsChange = (results) => {
@@ -179,9 +135,10 @@
 				}
 			}
 
-			getLocation()
-
-			data[data.length - 1].coordinates = coordinates
+			data[data.length - 1].coordinates = {
+				latitude: coordinates[0],
+				longitude: coordinates[1]
+			};
 		};
 
 		test.onFinish = (results) => {
@@ -211,6 +168,8 @@
 
 	restart();
 </script>
+
+<Geolocation getPosition bind:coords={coordinates} />
 
 <div class="main">
 	<XHeading />
