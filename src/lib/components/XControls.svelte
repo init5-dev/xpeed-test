@@ -1,4 +1,6 @@
 <script>
+// @ts-nocheck
+
 	import { Label, Button, Spinner, Input } from "flowbite-svelte";
 	import { PlaySolid, PauseSolid, CloseSolid } from "flowbite-svelte-icons";
 

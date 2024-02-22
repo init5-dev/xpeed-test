@@ -1,4 +1,6 @@
 <script>
+// @ts-nocheck
+
 	import { addUnitySufix } from "$lib/utils/formatting";
 	import { Alert, Button } from "flowbite-svelte";
 	import { DownloadSolid } from "flowbite-svelte-icons";

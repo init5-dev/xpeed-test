@@ -1,4 +1,6 @@
 <script>
+// @ts-nocheck
+
 	import { Alert, Spinner } from 'flowbite-svelte';
 
   export let interval

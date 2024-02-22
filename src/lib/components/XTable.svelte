@@ -1,6 +1,7 @@
 <script>
   import { Table, TableHead, TableHeadCell, TableBody, TableBodyRow, TableBodyCell } from "flowbite-svelte";
   import { addUnitySufix } from "$lib/utils/formatting";
+  
   export let data;
   export let i
   export let downloadColor
