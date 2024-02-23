@@ -10,10 +10,11 @@
 	import XHeading from '$lib/components/XHeading.svelte';
 
 	import SpeedTest from '@cloudflare/speedtest';
-	import Geolocation from "svelte-geolocation";
+	import Geolocation from 'svelte-geolocation';
 	import { getCurrentTime, sleep } from '$lib/utils/time';
 	import { Mbps } from '$lib/utils/formatting';
 	import { calcAvg, calcMedian } from '$lib/utils/stats';
+	import XMap from '$lib/components/XMap.svelte';
 
 	let showTable;
 
@@ -35,7 +36,7 @@
 	let data;
 	let median;
 	let avg;
-	let coordinates = []
+	let coordinates = [0, 0];
 
 	let test;
 
@@ -173,8 +174,10 @@
 
 <div class="main">
 	<XHeading />
+	<div class="w-[100vw] h-96">
+		<XMap bind:latitude={coordinates[0]} bind:longitude={coordinates[1]} />
+	</div>
 	<XControls {running} {waiting} {iterations} {interval} {run} {stop} {restart} />
-
 	{#if error}
 		<XErrorMessage />
 	{/if}
